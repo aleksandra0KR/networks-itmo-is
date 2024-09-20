@@ -44,28 +44,37 @@ scenario_one() {
     gate="10.100.0.1"
     dns="8.8.8.8"
 
-    ip address add $ip/$mask dev "$interface"
-    ip route delete default dev "$interface"
-    ip route add default via $gate dev "$interface"
+    ip a add $ip/$mask dev "$interface"
+    ip r delete default dev "$interface"
+    ip r add default via $gate dev "$interface"
     echo "nameserver ${dns}" | tee /etc/resolv.conf
   done
 }
 
-undo_scenario() {
+undo_scenario_one() {
   for interface in $(ip -brief address show | awk '{print $1;}'); do
     ip="10.100.0.2"
     mask="255.255.255.0"
     old_gate="192.168.0.1"
     dns="8.8.8.8"
 
-    ip address delete $ip/$mask dev "$interface"
-    ip route delete default dev "$interface"
-    ip route add default via $old_gate dev "$interface"
+    ip a delete $ip/$mask dev "$interface"
+    ip r delete default dev "$interface"
+    ip r add default via $old_gate dev "$interface"
     true "" >/etc/resolv.conf
   done
 }
 
-opts=(interface_info ipv4_info scenario_one undo quit)
+scenario_two() {
+  for interface in $(ip -brief address show | awk '{print \$1;}'); do
+    nmcli dev set "\$interface" managed yes
+    nmcli con add type ethernet ifname "\$interface" con-name "\$interface-dhcp"
+    nmcli con modify "\$interface-dhcp" ipv4.method auto
+    nmcli con up "\$interface-dhcp"
+  done
+}
+
+opts=(interface_info ipv4_info scenario_one undo scenario_two quit)
 
 while true; do
   PS3="Select from following: "
@@ -83,6 +92,9 @@ while true; do
       ;;
     undo)
       undo_scenario
+      ;;
+    scenario_two)
+      scenario_two
       ;;
     quit)
       exit 0
