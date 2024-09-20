@@ -37,7 +37,35 @@ get_ipv4_info() {
   done
 }
 
-opts=(interface_info ipv4_info quit)
+scenario_one() {
+  for interface in $(ip -brief address show | awk '{print $1;}'); do
+    ip="10.100.0.2"
+    mask="255.255.255.0"
+    gate="10.100.0.1"
+    dns="8.8.8.8"
+
+    ip address add $ip/$mask dev "$interface"
+    ip route delete default dev "$interface"
+    ip route add default via $gate dev "$interface"
+    echo "nameserver ${dns}" | tee /etc/resolv.conf
+  done
+}
+
+undo_scenario() {
+  for interface in $(ip -brief address show | awk '{print $1;}'); do
+    ip="10.100.0.2"
+    mask="255.255.255.0"
+    old_gate="192.168.0.1"
+    dns="8.8.8.8"
+
+    ip address delete $ip/$mask dev "$interface"
+    ip route delete default dev "$interface"
+    ip route add default via $old_gate dev "$interface"
+    true "" >/etc/resolv.conf
+  done
+}
+
+opts=(interface_info ipv4_info scenario_one undo quit)
 
 while true; do
   PS3="Select from following: "
@@ -49,6 +77,12 @@ while true; do
       ;;
     ipv4_info)
       get_ipv4_info
+      ;;
+    scenario_one)
+      scenario_one
+      ;;
+    undo)
+      undo_scenario
       ;;
     quit)
       exit 0
